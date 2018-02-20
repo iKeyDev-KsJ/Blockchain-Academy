@@ -1,0 +1,16 @@
+{
+    "config": {
+        "chainId": /* Entered Chain Id Here */,
+        "daoBlock": 0,
+        "daosupport": true,
+        "homesteadBlock": 0,
+        "eip150Block": 0,
+        "eip155Block": 0,
+        "eip158Block": 0,
+        "byzantiumBlock": 0,
+        "engine": "ethash"
+    },
+    "difficulty": "0",
+    "gasLimit": "3000000",
+    "alloc": {}
+}
