@@ -1,23 +1,22 @@
 pragma solidity ^0.4.20;
 contract HelloBlockchain {
     
-    address owner;
+    address _owner;
     
-    // Set Contract Caller in Owner
-    function HelloBlockchain() public 
-    {
-        owner = msg.sender;
+    //
+    function HelloBlockchain() public {
+        _owner = msg.sender;
     }
 
-    function hello() public constant returns(string)
-    {
+    //
+    function hello() public constant returns(string) {
         return "hello";
     }
     
-    function echoHello(string _hello) public returns(string) 
-    {
-        if (msg.sender != owner) revert();
-        return _hello;   
+    //
+    function echoHello(string message) public returns(string) {
+        if (msg.sender != _owner) revert();
+        return message;   
     }
 
 }
