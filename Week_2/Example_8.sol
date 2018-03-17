@@ -1,22 +1,22 @@
-pragma solidity ^0.4.20;
+pragma solidity ^0.4.21;
 
-library ArithmeticLibrary {
+library ExampleLibrary {
     function _addOne(uint256 x, uint256 y) internal pure returns(uint256) {
         return x + y;
     }
 }
 
-contract Arithmetic {
+contract Example {
     
-    using ArithmeticLibrary for *;
+    using ExampleLibrary for *;
     address private owner;
 
-    function Arithmetic() public {
+    function Example() public {
         owner = msg.sender;
     }
 
     function addOne(uint256 x, uint256 y) public pure returns(uint256) {
-        return ArithmeticLibrary._addOne(x, y);
+        return ExampleLibrary._addOne(x, y);
     }
 
 }

@@ -1,6 +1,6 @@
-pragma solidity ^0.4.20;
+pragma solidity ^0.4.21;
 
-contract ArithmeticAbstract {
+contract ExampleAbstract {
     function _addOne(uint256 x, uint256 y) external pure returns(uint256) {
         return x + y;
     }
@@ -9,18 +9,18 @@ contract ArithmeticAbstract {
     }
 }
 
-contract Arithmetic is ArithmeticAbstract {
+contract Example is ExampleAbstract {
 
     address private owner;
-    ArithmeticAbstract private arithmeticAbstract;
+    ExampleAbstract private exampleAbstract;
 
-    function Arithmetic() public {
+    function Example() public {
         owner = msg.sender;
-        arithmeticAbstract = new ArithmeticAbstract();
+        exampleAbstract = new ExampleAbstract();
     }
 
     function addOne(uint256 x, uint256 y) public view returns(uint256) {
-        return arithmeticAbstract._addOne(x, y);
+        return exampleAbstract._addOne(x, y);
     }
 
     function addTwo(uint256 x, uint256 y) public pure returns(uint256) {

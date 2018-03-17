@@ -1,12 +1,12 @@
-pragma solidity ^0.4.20;
+pragma solidity ^0.4.21;
 
-contract Arithmetic {
+contract Example {
 
     address private _owner_1;
     address internal _owner_2;
     address public _owner_3;
 
-    function Arithmetic() public {
+    function Example() public {
         _owner_1 = msg.sender;
         _owner_2 = msg.sender;
         _owner_3 = msg.sender;
