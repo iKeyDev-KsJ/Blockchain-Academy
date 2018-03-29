@@ -3,6 +3,7 @@ pragma solidity ^0.4.21;
 /*
 
     Storage / Memory 소스 분석 결과
+    참고 주소: http://solidity.readthedocs.io/en/develop/frequently-asked-questions.html#what-is-the-memory-keyword-what-does-it-do
 
     Memory 타입은 기본 default이다.
     함수 내에 선언되는 모든 변수는 memory를 기본 인자값으로 한다.
