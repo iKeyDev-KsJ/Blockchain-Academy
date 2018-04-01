@@ -1,4 +1,4 @@
 .DS_Store
 *.pptx
 .gitignore
-node_module
+node_modules
