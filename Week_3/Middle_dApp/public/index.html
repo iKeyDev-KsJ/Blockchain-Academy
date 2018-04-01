@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>My dApp</title>
+
+  <!-- Vue 프레임워크 및 Web3 모듈 로딩 -->
+  <script src="https://unpkg.com/vue/dist/vue.min.js"></script>
+  <script src="js/web3.min.js"></script>
+  <script src="js/config.js"></script>
+
+  <!-- 아이콘 설정 -->
+  <link rel="shortcut icon" type="image/x-icon" href="favicon.ico">
+</head>
+<body>
+
+  <!-- Vue Template 영역 -->
+  <header>
+    <!-- 토큰 이름 표기 -->
+    <span>{{ token_name }}</span>
+  </header>
+
+  <section>
+    <!-- 토큰 보유 수량 표기 [보유 수량: 1 BCA] -->
+    <span>보유 수량: {{ token_balances }} {{ token_symbol }}</span>
+
+    <!-- 입금 주소 및 수량 입력 -->
+    <input v-model="to_address" placeholder="송금 주소 입력">
+    <input v-model="to_amount" type="number" placeholder="보낼 금액 입력">
+
+    <!-- 토큰 전송 -->
+    <button v-on:click="tokenTransfer">Token Transfer</button>
+  </section>
+
+  <footer>
+    <!-- 메타마스크 주소 -->
+    <span v-on:click="copyAddress">{{ address }}</span>
+  </footer>
+
+  <!-- Vue Script 영역 -->
+  <script>
+
+    // Header 영역
+    var header = new Vue({
+      el: 'header',
+      // 변수 영역 정의
+      data: {
+        // 토큰 이름을 받을 변수 선언
+        token_name: ''
+      },
+      // 메소드 영역 정의
+      methods: {
+        // 토큰 이름을 컨트랙으로부터 받아오는 함수 선언
+        getTokenName: () => {
+          // 메타마스크를 사용해 컨트랙 name() 을 호출해 값을 받아온다.
+          contract.methods.name().call({from: footer.address}, (err, tokenName) => {
+            // 오류 발생시 팝업창으로 알림
+            if (err) { alert(err) }
+            // header 변수 영역의 token_name에 받아온 값을 넣는다.
+            header.token_name = tokenName;
+          })
+        }
+      }
+    })
+  
+    // Section 영역
+    var section = new Vue({
+      el: 'section',
+      data: {
+        token_symbol: '',     // 토큰 심볼 변수
+        token_balances: '',   // 토큰 보유 잔고 변수
+        token_decimals: '',   // 토큰 소수점 변수
+
+        to_address: '',       // 송금 주소
+        to_amount: ''         // 송금액
+      },
+      methods: {
+        // 컨트랙 토큰 심볼을 받아오는 함수
+        getTokenSymbol: () => {
+          contract.methods.symbol().call({from: footer.address}, (err, tokenSymbol) => {
+            if (err) { alert(err) }
+            section.token_symbol = tokenSymbol;
+          })
+        },
+        // 현재 보유중인 토큰 잔고를 받아오는 함수
+        getTokenBalances: () => {
+          contract.methods.balanceOf(footer.address).call({from: footer.address}, (err, tokenBalances) => {
+            if (err) { alert(err) }
+            // 토큰의 decimals 정보를 받아오는 컨트랙 함수 호출
+            contract.methods.decimals().call({from: footer.address}, (err, tokenDecimals) => {
+              if (err) { alert(err) }
+              // 자신의 보유 잔고 = 잔고 / 10^decimals
+              section.token_decimals = tokenDecimals
+              section.token_balances = tokenBalances / 10 ** tokenDecimals
+            })
+          })
+        },
+        // 보유 중인 토큰을 송금하는 함수
+        tokenTransfer: () => {
+          // 정규식 검사로 송금 주소가 유효한지를 검사한다.
+          if(section.to_address.search(/0x[a-zA-Z0-9]{40}/) != -1) {
+            // 정규식 검사로 송금액이 유효한지 검사한다. [영어 또는 특문 등의 이상한 단어가 들어있는지를 걸러냄]
+            if (/^\d+(?:[.]\d+)?$/.test(section.to_amount) && section.to_amount >= 1 / 10 ** section.token_decimals) {
+              /*
+                토큰을 송금하는 컨트랙 함수 호출
+                transfer(송금주소, 송금액 * 10^decimals)
+                send({from: 보내는 주소, gasprice: 1GWei})
+              */
+              contract.methods.transfer(section.to_address, section.to_amount * (10 ** section.token_decimals)).send({from: footer.address, gasPrice: 1000000000})
+              // 트랜잭션 해시가 발생되면 호출되는 콜백 함수
+              .on('transactionHash', (txid) => {
+                //알람을 띄운다.
+                alert('트랜잭션 처리가 완료될때까지 잠시만 기다려주세요.')
+                // 1초마다 반복되는 인터벌 함수 등록
+                var refreshIntervalId = setInterval(() => {
+                  // 최신 블록 정보를 받아오는 함수 호출
+                  web3js.eth.getBlock('latest')
+                  .then((data) => {
+                    // 받아온 블록 정보의 txid 정보를 검사
+                    data.transactions.forEach((_txid) => {
+                      // 토큰 송금 트랜잭션 정보가 존재하는 경우 해당 내역 실행
+                      if (txid == _txid) { 
+                        // 반복 인터벌 함수 제거
+                        clearInterval(refreshIntervalId)
+                        // 알람
+                        alert('토큰 송금이 완료되었습니다.')
+                        // 새로운 창에 트랜잭션 정보 페이지를 띄움
+                        window.open('https://kovan.etherscan.io/tx/' + txid, '_blank')
+                        // 현재 페이지 새로고침
+                        location.replace('/')
+                      }
+                    })
+                  })
+                }, 1000)
+              })
+            } else { alert('입력된 금액 형식이 잘못되었습니다.') }
+          } else { alert('주소 형식이 잘못되었습니다.') }
+        }
+      }
+    })
+  
+    // Footer 영역
+    var footer = new Vue({
+      el: 'footer',
+      data: {
+        address: ''
+      },
+      methods: {
+        // 로그인된 메타마스크 주소를 받아오는 함수 호출
+        getCoinbase: (callback) => {
+          web3js.eth.getCoinbase((err, address) => {
+            if (err) { alert(err) }
+            footer.address = address
+            callback()
+          })
+        },
+        copyAddress: () => {
+          window.prompt ("Ctrl + C로 클립보드에 복사하세요", footer.address);
+        }
+      }
+    })
+
+    // 함수 호출
+    footer.getCoinbase(() => { 
+      header.getTokenName()
+      section.getTokenSymbol()
+      section.getTokenBalances()
+    })
+  </script>
+
+  <!-- Vue StyleSheet 영역 -->
+  <style>
+    input:focus, button:focus { outline:0 }
+    input::-webkit-input-placeholder { color: #252535 }
+
+    html {
+      background-color: #252535;
+      margin: 0;
+    }
+
+    header {
+      background-color: #f0f0f0;
+      position: fixed; top: 0; left: 0;
+      width: 100%; height: 10%;
+    }
+
+    header span {
+      position: absolute; top: 50%;
+      width: 100%;
+      font: bold 4.5vmin arial, helvetica, sans-serif;
+      text-align: center;
+      color: #252535;
+      transform: translateY(-50%);
+      cursor: default;
+    }
+
+    section {
+      position: absolute; top: 10%; left: 0;
+      width: 100%; height: 90%;
+    }
+
+    section span {
+      position: absolute; top: 30%;
+      width: 100%;
+      font: normal 4vmin arial, helvetica, sans-serif;
+      text-align: center;
+      color: #f0f0f0;
+      transform: translateY(-50%);
+    }
+
+    section input {
+      background-color: #f0f0f0;
+      position: relative; top: 41.25%; left: 50%;
+      margin: 0 0 2.5vmin 0;
+      width: 62.5%; height: 6.25%;
+      font: normal 2.5vmin arial, helvetica, sans-serif;
+      text-align: center;
+      border: none;
+      border-radius: 0.5vmin;
+      transform: translate(-50%, -50%);
+    }
+
+    section button {
+      background-color: transparent;
+      position: absolute; bottom: 30%; left: 50%;
+      width: 62.5%; height: 6.25%;
+      font: normal 3vmin arial, helvetica, sans-serif;
+      text-align: center;
+      color: #f0f0f0;
+      border: solid 0.25vmin #f0f0f0;
+      border-radius: 0.5vmin;
+      transform: translate(-50%, -50%);
+    }
+
+    section button:hover {
+      background-color: #f0f0f0;
+      color: #252535;
+      cursor: pointer;
+    }
+
+    footer {
+      background-color: #f0f0f0;
+      position: fixed; bottom: 0; left: 0;
+      width: 100%; height: 10%;
+    }
+
+    footer span {
+      position: absolute; top: 50%;
+      width: 100%;
+      font: normal 2.5vmin arial, helvetica, sans-serif;
+      text-align: center;
+      color: #252535;
+      transform: translateY(-50%);
+      cursor: default;
+    }
+
+    footer span:hover {
+      color: #858595;
+      cursor: pointer;
+    }
+  </style>
+</body>
+</html>
