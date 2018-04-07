@@ -21,14 +21,22 @@
 
   <section>
     <!-- 토큰 보유 수량 표기 [보유 수량: 1 BCA] -->
-    <span>보유 수량: {{ token_balances }} {{ token_symbol }}</span>
+    <span>
+      보유 수량: {{ token_balances }} {{ token_symbol }} <br>
+      <br> 총 {{ token_symbol }} 발행량: {{ token_crowdsale }} {{ token_symbol }}
+      <br> 참여 가능 수량 : {{ token_crowdsale_raised }} {{ token_symbol }}
+      <br> 배분율: {{ token_perOneEther }} {{ token_symbol }} / 1 ETH
+    </span>
 
     <!-- 입금 주소 및 수량 입력 -->
     <input v-model="to_address" placeholder="송금 주소 입력">
     <input v-model="to_amount" type="number" placeholder="보낼 금액 입력">
 
     <!-- 토큰 전송 -->
-    <button v-on:click="tokenTransfer">Token Transfer</button>
+    <button id="transfer" v-on:click="tokenTransfer">Token Transfer</button>
+
+    <!-- 크라우드 세일 참여 -->
+    <button id="crowdsale" v-on:click="tokenCrowdSale">Token CrowdSale</button>
   </section>
 
   <footer>
@@ -70,6 +78,10 @@
         token_balances: '',   // 토큰 보유 잔고 변수
         token_decimals: '',   // 토큰 소수점 변수
 
+        token_crowdsale: '',        // 크라우드 세일 총 수량
+        token_crowdsale_raised: '', // 참여 가능 수량
+        token_perOneEther: '',      // 1이더당 배분 토큰 수량
+
         to_address: '',       // 송금 주소
         to_amount: ''         // 송금액
       },
@@ -90,7 +102,30 @@
               if (err) { alert(err) }
               // 자신의 보유 잔고 = 잔고 / 10^decimals
               section.token_decimals = tokenDecimals
-              section.token_balances = tokenBalances / 10 ** tokenDecimals
+              section.token_balances = numberWithCommas(tokenBalances / 10 ** tokenDecimals)
+            })
+          })
+        },
+        // 토큰 크라우드 세일 정보를 받아오는 함수
+        getTokenCrowdSale: () => {
+          // 토큰 크라우드 총 배분 수량을 받아오는 함수 호출
+          contract.methods.crowdsaleAmount().call({from: footer.address}, (err, tokenCrowdSale) => {
+            if (err) { alert(err) }
+            // 토큰 크라우드 참여 가능 수량을 받아오는 함수 호출
+            contract.methods.amountRaised().call({from: footer.address}, (err, tokenCrowdSaleRaised) => {
+              if (err) { alert(err) }
+              // 토큰 크라우드 배분율을 받아오는 함수 호출
+              contract.methods.tokenPerOneEther().call({from: footer.address}, (err, tokenPerOneEther) => {
+                if (err) { alert(err) }
+                // 토큰의 decimals 정보를 받아오는 컨트랙 함수 호출
+                contract.methods.decimals().call({from: footer.address}, (err, tokenDecimals) => {
+                  if (err) { alert(err) }
+                  // 크라우드 배분 수량 = 총 수량 / 10^decimals
+                  section.token_crowdsale = numberWithCommas(tokenCrowdSale / 10 ** tokenDecimals)
+                  section.token_crowdsale_raised = numberWithCommas(tokenCrowdSaleRaised / 10 ** tokenDecimals)
+                  section.token_perOneEther = numberWithCommas(tokenPerOneEther / 10 ** tokenDecimals)
+                })
+              })
             })
           })
         },
@@ -101,9 +136,9 @@
             // 정규식 검사로 송금액이 유효한지 검사한다. [영어 또는 특문 등의 이상한 단어가 들어있는지를 걸러냄]
             if (/^\d+(?:[.]\d+)?$/.test(section.to_amount) && section.to_amount >= 1 / 10 ** section.token_decimals) {
               /*
-                토큰을 송금하는 컨트랙 함수 호출
-                transfer(송금주소, 송금액 * 10^decimals)
-                send({from: 보내는 주소, gasprice: 1GWei})
+              **  토큰을 송금하는 컨트랙 함수 호출
+              **  transfer(송금주소, 송금액 * 10^decimals)
+              **  send({from: 보내는 주소, gasprice: 1GWei})
               */
               contract.methods.transfer(section.to_address, section.to_amount * (10 ** section.token_decimals)).send({from: footer.address, gasPrice: 1000000000})
               // 트랜잭션 해시가 발생되면 호출되는 콜백 함수
@@ -134,6 +169,43 @@
               })
             } else { alert('입력된 금액 형식이 잘못되었습니다.') }
           } else { alert('주소 형식이 잘못되었습니다.') }
+        },
+        // 크라우드 세일에 참여하는 함수
+        tokenCrowdSale: () => {
+          // 정규식 검사로 송금액이 유효한지 검사한다. [영어 또는 특문 등의 이상한 단어가 들어있는지를 걸러냄]
+          if (/^\d+(?:[.]\d+)?$/.test(section.to_amount) && section.to_amount >= 1 / 10 ** section.token_decimals) {
+            /*
+            **  이더를 송금하는 컨트랙 함수 호출
+            **  sendTransaction(송금주소, 송금액 * 10^18)
+            */
+            web3js.eth.sendTransaction({from: footer.address, to: contractAddress, value: section.to_amount * (10 ** 18), gasPrice: 1000000000})
+            // 트랜잭션 해시가 발생되면 호출되는 콜백 함수
+            .on('transactionHash', (txid) => {
+              //알람을 띄운다.
+              alert('트랜잭션 처리가 완료될때까지 잠시만 기다려주세요.')
+              // 1초마다 반복되는 인터벌 함수 등록
+              var refreshIntervalId = setInterval(() => {
+                // 최신 블록 정보를 받아오는 함수 호출
+                web3js.eth.getBlock('latest')
+                .then((data) => {
+                  // 받아온 블록 정보의 txid 정보를 검사
+                  data.transactions.forEach((_txid) => {
+                    // 토큰 송금 트랜잭션 정보가 존재하는 경우 해당 내역 실행
+                    if (txid == _txid) { 
+                      // 반복 인터벌 함수 제거
+                      clearInterval(refreshIntervalId)
+                      // 알람
+                      alert('크라우드 세일 참여가 완료되었습니다.')
+                      // 새로운 창에 트랜잭션 정보 페이지를 띄움
+                      window.open('https://kovan.etherscan.io/tx/' + txid, '_blank')
+                      // 현재 페이지 새로고침
+                      location.replace('/')
+                    }
+                  })
+                })
+              }, 1000)
+            })
+          } else { alert('입력된 금액 형식이 잘못되었습니다.') }
         }
       }
     })
@@ -164,6 +236,7 @@
       header.getTokenName()
       section.getTokenSymbol()
       section.getTokenBalances()
+      section.getTokenCrowdSale()
     })
   </script>
 
@@ -209,7 +282,7 @@
 
     section input {
       background-color: #f0f0f0;
-      position: relative; top: 41.25%; left: 50%;
+      position: relative; top: 50%; left: 50%;
       margin: 0 0 2.5vmin 0;
       width: 62.5%; height: 6.25%;
       font: normal 2.5vmin arial, helvetica, sans-serif;
@@ -219,19 +292,31 @@
       transform: translate(-50%, -50%);
     }
 
-    section button {
+    section #transfer {
       background-color: transparent;
-      position: absolute; bottom: 30%; left: 50%;
-      width: 62.5%; height: 6.25%;
+      position: absolute; bottom: 22.5%; left: 50%;
+      width: 30%; height: 6.25%;
       font: normal 3vmin arial, helvetica, sans-serif;
       text-align: center;
       color: #f0f0f0;
       border: solid 0.25vmin #f0f0f0;
       border-radius: 0.5vmin;
-      transform: translate(-50%, -50%);
+      transform: translate(-103.75%, -50%);
     }
 
-    section button:hover {
+    section #crowdsale {
+      background-color: transparent;
+      position: absolute; bottom: 22.5%; left: 50%;
+      width: 30%; height: 6.25%;
+      font: normal 3vmin arial, helvetica, sans-serif;
+      text-align: center;
+      color: #f0f0f0;
+      border: solid 0.25vmin #f0f0f0;
+      border-radius: 0.5vmin;
+      transform: translate(3.75%, -50%);
+    }
+
+    section #transfer:hover, section #crowdsale:hover {
       background-color: #f0f0f0;
       color: #252535;
       cursor: pointer;

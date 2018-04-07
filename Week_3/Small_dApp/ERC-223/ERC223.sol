@@ -16,7 +16,7 @@ contract ERC223 is ERC223Interface, ERC827 {
              ERC827(_initialAmount, _tokenName, _decimalUnits, _tokenSymbol) public {
     }
     
-    // transfer 오버라이딩
+    // transfer 오버로딩
     function transfer(address _to, uint256 _value) public returns (bool success) {
         require(_to != address(0));                             // 잘못된 address 검사
         require(balances[msg.sender] >= _value);                // 잔고 확인
@@ -47,7 +47,7 @@ contract ERC223 is ERC223Interface, ERC827 {
         return true;
     }
 
-    // transfer 오버라이딩
+    // transfer 오버로딩
     function transfer(address _to, uint256 _value, bytes _data) public returns (bool success) {
         require(_to != address(0));                             // 잘못된 address 검사
         require(balances[msg.sender] >= _value);                // 잔고 확인
